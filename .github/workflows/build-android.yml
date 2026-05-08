@@ -37,6 +37,10 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Install Node dependencies
+        working-directory: react-native-app
+        run: npm install
+
       - name: Determine build type
         id: build_type
         run: |
@@ -48,47 +52,6 @@ jobs:
             echo "type=debug" >> $GITHUB_OUTPUT
           fi
 
-      - name: Initialize React Native project
-        run: |
-          npx react-native@0.73.0 init WisenetPlayer \
-            --template react-native-template-typescript \
-            --skip-install \
-            --directory /tmp/rn-build
-          echo "React Native project initialized"
-
-      - name: Copy custom source files
-        run: |
-          # Replace generated src with our source
-          rm -rf /tmp/rn-build/src
-          cp -r react-native-app/src /tmp/rn-build/
-          cp react-native-app/App.tsx /tmp/rn-build/App.tsx
-          cp react-native-app/index.js /tmp/rn-build/index.js
-
-      - name: Merge dependencies into package.json
-        run: |
-          python3 - <<'EOF'
-          import json
-
-          with open('react-native-app/package.json') as f:
-              our = json.load(f)
-          with open('/tmp/rn-build/package.json') as f:
-              base = json.load(f)
-
-          # Merge our runtime dependencies into the base project
-          base['dependencies'].update(our['dependencies'])
-
-          with open('/tmp/rn-build/package.json', 'w') as f:
-              json.dump(base, f, indent=2)
-
-          print("Merged dependencies:")
-          for k in our['dependencies']:
-              print(f"  {k}: {our['dependencies'][k]}")
-          EOF
-
-      - name: Install Node dependencies
-        working-directory: /tmp/rn-build
-        run: npm install
-
       - name: Set up Android SDK components
         run: |
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager \
@@ -98,14 +61,16 @@ jobs:
             "ndk;26.1.10909125" 2>&1 | tail -3
 
       - name: Create local.properties
-        run: echo "sdk.dir=$ANDROID_HOME" > /tmp/rn-build/android/local.properties
+        working-directory: react-native-app/android
+        run: echo "sdk.dir=$ANDROID_HOME" > local.properties
 
       - name: Set up release keystore
         if: steps.build_type.outputs.type == 'release'
+        working-directory: react-native-app/android/app
         run: |
           if [ -n "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
-            echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > /tmp/rn-build/android/app/release.keystore
-            cat >> /tmp/rn-build/android/gradle.properties <<'PROPS'
+            echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > release.keystore
+            cat >> ../gradle.properties <<'PROPS'
           WISENET_UPLOAD_STORE_FILE=release.keystore
           WISENET_UPLOAD_STORE_PASSWORD=${{ secrets.ANDROID_KEY_STORE_PASSWORD }}
           WISENET_UPLOAD_KEY_ALIAS=${{ secrets.ANDROID_KEY_ALIAS }}
@@ -116,27 +81,45 @@ jobs:
             echo "No release keystore in secrets — using debug keystore."
           fi
 
+      - name: Grant execute permission for gradlew
+        run: chmod +x react-native-app/android/gradlew
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
       - name: Build Debug APK
         if: steps.build_type.outputs.type == 'debug'
-        working-directory: /tmp/rn-build/android
-        run: ./gradlew assembleDebug --no-daemon
+        working-directory: react-native-app/android
+        run: |
+          ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee /tmp/gradle-build.log
+          exit ${PIPESTATUS[0]}
 
       - name: Build Release APK
         if: steps.build_type.outputs.type == 'release'
-        working-directory: /tmp/rn-build/android
-        run: ./gradlew assembleRelease --no-daemon
+        working-directory: react-native-app/android
+        run: |
+          ./gradlew assembleRelease --no-daemon --stacktrace 2>&1 | tee /tmp/gradle-build.log
+          exit ${PIPESTATUS[0]}
+
+      - name: Upload build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gradle-build-log
+          path: /tmp/gradle-build.log
+          retention-days: 7
 
       - name: Collect APK
         id: collect_apk
         run: |
           if [[ "${{ steps.build_type.outputs.type }}" == "release" ]]; then
-            SRC="/tmp/rn-build/android/app/build/outputs/apk/release/app-release.apk"
+            SRC="react-native-app/android/app/build/outputs/apk/release/app-release.apk"
             TAG="${{ github.ref_name }}"
-            DEST="$GITHUB_WORKSPACE/wisenet-player-${TAG:-release}.apk"
+            DEST="wisenet-player-${TAG:-release}.apk"
           else
-            SRC="/tmp/rn-build/android/app/build/outputs/apk/debug/app-debug.apk"
+            SRC="react-native-app/android/app/build/outputs/apk/debug/app-debug.apk"
             SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-            DEST="$GITHUB_WORKSPACE/wisenet-player-debug-${SHA}.apk"
+            DEST="wisenet-player-debug-${SHA}.apk"
           fi
           cp "$SRC" "$DEST"
           echo "apk_path=$DEST" >> $GITHUB_OUTPUT
