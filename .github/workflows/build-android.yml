@@ -41,6 +41,9 @@ jobs:
         working-directory: react-native-app
         run: npm install
 
+      - name: Add node_modules/.bin to PATH
+        run: echo "$GITHUB_WORKSPACE/react-native-app/node_modules/.bin" >> $GITHUB_PATH
+
       - name: Determine build type
         id: build_type
         run: |
@@ -90,22 +93,13 @@ jobs:
       - name: Build Debug APK
         if: steps.build_type.outputs.type == 'debug'
         working-directory: react-native-app/android
-        env:
-          PATH: ${{ github.workspace }}/react-native-app/node_modules/.bin:${{ env.PATH }}
         run: |
-          echo "=== react-native version ===" && react-native --version || echo "react-native not found"
-          echo "=== node_modules check ==="
-          ls ${{ github.workspace }}/react-native-app/node_modules/@react-native/ 2>/dev/null || echo "@react-native not found"
-          ls ${{ github.workspace }}/react-native-app/node_modules/@react-native-community/ 2>/dev/null || echo "@react-native-community not found"
-          echo "=== gradle build ==="
           ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee /tmp/gradle-build.log
           exit ${PIPESTATUS[0]}
 
       - name: Build Release APK
         if: steps.build_type.outputs.type == 'release'
         working-directory: react-native-app/android
-        env:
-          PATH: ${{ github.workspace }}/react-native-app/node_modules/.bin:${{ env.PATH }}
         run: |
           ./gradlew assembleRelease --no-daemon --stacktrace 2>&1 | tee /tmp/gradle-build.log
           exit ${PIPESTATUS[0]}
