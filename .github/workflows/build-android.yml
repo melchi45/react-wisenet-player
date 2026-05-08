@@ -1,0 +1,142 @@
+name: Build Android APK
+
+on:
+  push:
+    branches:
+      - react-native
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Build type (debug or release)'
+        required: true
+        default: 'debug'
+        type: choice
+        options:
+          - debug
+          - release
+
+jobs:
+  build:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: react-native-app/package-lock.json
+
+      - name: Install Node dependencies
+        working-directory: react-native-app
+        run: npm ci
+
+      - name: Determine build type
+        id: build_type
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            echo "type=release" >> $GITHUB_OUTPUT
+            echo "Building RELEASE APK for tag ${{ github.ref_name }}"
+          elif [[ "${{ github.event.inputs.build_type }}" == "release" ]]; then
+            echo "type=release" >> $GITHUB_OUTPUT
+          else
+            echo "type=debug" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Set up release keystore
+        if: steps.build_type.outputs.type == 'release'
+        working-directory: react-native-app/android/app
+        run: |
+          if [ -n "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
+            echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > release.keystore
+            echo "WISENET_UPLOAD_STORE_FILE=release.keystore" >> ../gradle.properties
+            echo "WISENET_UPLOAD_STORE_PASSWORD=${{ secrets.ANDROID_KEY_STORE_PASSWORD }}" >> ../gradle.properties
+            echo "WISENET_UPLOAD_KEY_ALIAS=${{ secrets.ANDROID_KEY_ALIAS }}" >> ../gradle.properties
+            echo "WISENET_UPLOAD_KEY_PASSWORD=${{ secrets.ANDROID_KEY_PASSWORD }}" >> ../gradle.properties
+            echo "Using release keystore from secrets."
+          else
+            echo "No release keystore found in secrets — signing with debug keystore."
+          fi
+
+      - name: Grant execute permission for gradlew
+        working-directory: react-native-app/android
+        run: chmod +x gradlew
+
+      - name: Cache Gradle packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ hashFiles('react-native-app/android/**/*.gradle*', 'react-native-app/android/gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: gradle-
+
+      - name: Build Debug APK
+        if: steps.build_type.outputs.type == 'debug'
+        working-directory: react-native-app/android
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Build Release APK
+        if: steps.build_type.outputs.type == 'release'
+        working-directory: react-native-app/android
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Rename APK
+        id: rename_apk
+        run: |
+          if [[ "${{ steps.build_type.outputs.type }}" == "release" ]]; then
+            SRC="react-native-app/android/app/build/outputs/apk/release/app-release.apk"
+            TAG="${{ github.ref_name }}"
+            DEST="wisenet-player-${TAG:-release}.apk"
+          else
+            SRC="react-native-app/android/app/build/outputs/apk/debug/app-debug.apk"
+            SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+            DEST="wisenet-player-debug-${SHA}.apk"
+          fi
+          cp "$SRC" "$DEST"
+          echo "apk_path=$DEST" >> $GITHUB_OUTPUT
+          echo "apk_name=$(basename $DEST)" >> $GITHUB_OUTPUT
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.rename_apk.outputs.apk_name }}
+          path: ${{ steps.rename_apk.outputs.apk_path }}
+          retention-days: 30
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Wisenet Player ${{ github.ref_name }}
+          body: |
+            ## Wisenet Player ${{ github.ref_name }}
+
+            ### 설치 방법
+            1. `wisenet-player-${{ github.ref_name }}.apk` 다운로드
+            2. Android 기기에서 **설정 > 보안 > 출처를 알 수 없는 앱 허용**
+            3. APK 파일 실행하여 설치
+
+            ### 요구사항
+            - Android 6.0 (API 23) 이상
+            - 카메라와 동일 네트워크 또는 UMP 프록시 서버 접근 가능
+
+            ### 변경사항
+            ${{ github.event.head_commit.message }}
+          files: ${{ steps.rename_apk.outputs.apk_path }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
