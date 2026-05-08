@@ -68,6 +68,19 @@ jobs:
             echo "No release keystore found in secrets — signing with debug keystore."
           fi
 
+      - name: Set up Android SDK components
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager \
+            "platform-tools" \
+            "build-tools;34.0.0" \
+            "platforms;android-34" \
+            "ndk;26.1.10909125" 2>&1 | tail -5
+
+      - name: Create local.properties
+        working-directory: react-native-app/android
+        run: echo "sdk.dir=$ANDROID_HOME" > local.properties
+
       - name: Grant execute permission for gradlew
         run: chmod +x react-native-app/android/gradlew
 
@@ -77,12 +90,16 @@ jobs:
       - name: Build Debug APK
         if: steps.build_type.outputs.type == 'debug'
         working-directory: react-native-app/android
-        run: ./gradlew assembleDebug --no-daemon
+        env:
+          ANDROID_HOME: ${{ env.ANDROID_HOME }}
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Build Release APK
         if: steps.build_type.outputs.type == 'release'
         working-directory: react-native-app/android
-        run: ./gradlew assembleRelease --no-daemon
+        env:
+          ANDROID_HOME: ${{ env.ANDROID_HOME }}
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
 
       - name: Rename APK
         id: rename_apk
