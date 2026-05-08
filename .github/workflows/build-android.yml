@@ -142,34 +142,9 @@ jobs:
           JAR_DIR="${GITHUB_WORKSPACE}/react-native-app/node_modules/@react-native/gradle-plugin/build/libs"
           echo "=== JARs available: ==="
           ls -la "${JAR_DIR}" || echo "WARNING: JAR dir not found"
-          cat > react-native-app/android/settings.gradle <<SETTINGS_EOF
-buildscript {
-    repositories {
-        google()
-        mavenCentral()
-    }
-    dependencies {
-        classpath fileTree(dir: '${JAR_DIR}', include: ['*.jar'])
-    }
-}
-
-pluginManagement {
-    repositories {
-        google()
-        mavenCentral()
-        gradlePluginPortal()
-    }
-}
-
-apply plugin: com.facebook.react.ReactSettingsPlugin
-
-extensions.configure(com.facebook.react.ReactSettingsExtension) { ex ->
-    ex.autolinkLibrariesFromCommand()
-}
-rootProject.name = 'WisenetPlayer'
-include ':app'
-includeBuild('../node_modules/@react-native/gradle-plugin')
-SETTINGS_EOF
+          echo "YnVpbGRzY3JpcHQgewogICAgcmVwb3NpdG9yaWVzIHsKICAgICAgICBnb29nbGUoKQogICAgICAgIG1hdmVuQ2VudHJhbCgpCiAgICB9CiAgICBkZXBlbmRlbmNpZXMgewogICAgICAgIGNsYXNzcGF0aCBmaWxlVHJlZShkaXI6ICdKQVJfRElSX1BMQUNFSE9MREVSJywgaW5jbHVkZTogWycqLmphciddKQogICAgfQp9CgpwbHVnaW5NYW5hZ2VtZW50IHsKICAgIHJlcG9zaXRvcmllcyB7CiAgICAgICAgZ29vZ2xlKCkKICAgICAgICBtYXZlbkNlbnRyYWwoKQogICAgICAgIGdyYWRsZVBsdWdpblBvcnRhbCgpCiAgICB9Cn0KCmFwcGx5IHBsdWdpbjogY29tLmZhY2Vib29rLnJlYWN0LlJlYWN0U2V0dGluZ3NQbHVnaW4KCmV4dGVuc2lvbnMuY29uZmlndXJlKGNvbS5mYWNlYm9vay5yZWFjdC5SZWFjdFNldHRpbmdzRXh0ZW5zaW9uKSB7IGV4IC0+CiAgICBleC5hdXRvbGlua0xpYnJhcmllc0Zyb21Db21tYW5kKCkKfQpyb290UHJvamVjdC5uYW1lID0gJ1dpc2VuZXRQbGF5ZXInCmluY2x1ZGUgJzphcHAnCmluY2x1ZGVCdWlsZCgnLi4vbm9kZV9tb2R1bGVzL0ByZWFjdC1uYXRpdmUvZ3JhZGxlLXBsdWdpbicpCg==" \
+            | base64 --decode > react-native-app/android/settings.gradle
+          sed -i "s|JAR_DIR_PLACEHOLDER|${JAR_DIR}|g" react-native-app/android/settings.gradle
           echo "=== Patched settings.gradle ==="
           cat react-native-app/android/settings.gradle
 
