@@ -93,6 +93,11 @@ jobs:
         env:
           PATH: ${{ github.workspace }}/react-native-app/node_modules/.bin:${{ env.PATH }}
         run: |
+          echo "=== react-native version ===" && react-native --version || echo "react-native not found"
+          echo "=== node_modules check ==="
+          ls ${{ github.workspace }}/react-native-app/node_modules/@react-native/ 2>/dev/null || echo "@react-native not found"
+          ls ${{ github.workspace }}/react-native-app/node_modules/@react-native-community/ 2>/dev/null || echo "@react-native-community not found"
+          echo "=== gradle build ==="
           ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee /tmp/gradle-build.log
           exit ${PIPESTATUS[0]}
 
@@ -110,12 +115,17 @@ jobs:
         run: |
           echo "## Build Failed" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
-          grep -E "FAILURE|> Could not|Exception|error:" /tmp/gradle-build.log | tail -40 >> $GITHUB_STEP_SUMMARY || true
+          grep -E "FAILURE|> Could not|Exception|error:" /tmp/gradle-build.log 2>/dev/null | tail -40 >> $GITHUB_STEP_SUMMARY || true
           echo '```' >> $GITHUB_STEP_SUMMARY
-          echo "### Last 60 lines" >> $GITHUB_STEP_SUMMARY
+          echo "### Last 80 lines" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
-          tail -60 /tmp/gradle-build.log >> $GITHUB_STEP_SUMMARY || true
+          tail -80 /tmp/gradle-build.log 2>/dev/null >> $GITHUB_STEP_SUMMARY || echo "No log file found" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
+          echo ""
+          echo "=========================================="
+          echo "FULL ERROR SUMMARY (also in step summary):"
+          echo "=========================================="
+          cat $GITHUB_STEP_SUMMARY || true
 
       - name: Upload build log on failure
         if: failure()
