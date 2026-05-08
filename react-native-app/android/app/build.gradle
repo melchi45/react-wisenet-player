@@ -58,6 +58,14 @@ android {
 }
 
 dependencies {
+    // React Native BOM resolves versions automatically
     implementation("com.facebook.react:react-android")
     implementation("com.facebook.react:hermes-android")
+}
+
+// Apply autolinking from CLI platform android (RN 0.73 compatible)
+def cliPlatformAndroid = file("../../node_modules/@react-native-community/cli-platform-android/native_modules.gradle")
+if (cliPlatformAndroid.exists()) {
+    apply from: cliPlatformAndroid
+    applyNativeModulesAppBuildGradle(project)
 }
