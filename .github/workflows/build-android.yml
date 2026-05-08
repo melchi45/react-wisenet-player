@@ -129,22 +129,18 @@ jobs:
           echo "=== src/ directory ==="
           ls "$PLUGIN_DIR/src/main/kotlin/com/facebook/react/" 2>/dev/null || echo "No src/"
 
-      - name: Pre-build @react-native/gradle-plugin JAR
+      - name: Pre-build @react-native/gradle-plugin and publish to mavenLocal
         working-directory: react-native-app/node_modules/@react-native/gradle-plugin
         run: |
           chmod +x gradlew
-          ./gradlew jar --no-daemon --stacktrace 2>&1 | tail -30
-          echo "=== Built JARs ==="
-          ls -la build/libs/ || echo "No build/libs/ found"
+          ./gradlew publishToMavenLocal --no-daemon --stacktrace 2>&1 | tail -40
+          echo "=== Maven local contents ==="
+          find ~/.m2/repository/com/facebook/react -type f 2>/dev/null || echo "Nothing published"
 
-      - name: Patch settings.gradle to bypass includeBuild plugin resolution
+      - name: Patch settings.gradle to use mavenLocal for plugin resolution
         run: |
-          JAR_DIR="${GITHUB_WORKSPACE}/react-native-app/node_modules/@react-native/gradle-plugin/build/libs"
-          echo "=== JARs available: ==="
-          ls -la "${JAR_DIR}" || echo "WARNING: JAR dir not found"
-          echo "aW1wb3J0IGNvbS5mYWNlYm9vay5yZWFjdC5SZWFjdFNldHRpbmdzUGx1Z2luCmltcG9ydCBjb20uZmFjZWJvb2sucmVhY3QuUmVhY3RTZXR0aW5nc0V4dGVuc2lvbgoKcGx1Z2luTWFuYWdlbWVudCB7CiAgICByZXBvc2l0b3JpZXMgewogICAgICAgIGdvb2dsZSgpCiAgICAgICAgbWF2ZW5DZW50cmFsKCkKICAgICAgICBncmFkbGVQbHVnaW5Qb3J0YWwoKQogICAgfQp9CgpidWlsZHNjcmlwdCB7CiAgICByZXBvc2l0b3JpZXMgewogICAgICAgIGdvb2dsZSgpCiAgICAgICAgbWF2ZW5DZW50cmFsKCkKICAgIH0KICAgIGRlcGVuZGVuY2llcyB7CiAgICAgICAgY2xhc3NwYXRoIGZpbGVUcmVlKGRpcjogJ0pBUl9ESVJfUExBQ0VIT0xERVInLCBpbmNsdWRlOiBbJyouamFyJ10pCiAgICB9Cn0KCmFwcGx5IHBsdWdpbjogUmVhY3RTZXR0aW5nc1BsdWdpbgoKZXh0ZW5zaW9ucy5jb25maWd1cmUoUmVhY3RTZXR0aW5nc0V4dGVuc2lvbikgeyBleCAtPgogICAgZXguYXV0b2xpbmtMaWJyYXJpZXNGcm9tQ29tbWFuZCgpCn0Kcm9vdFByb2plY3QubmFtZSA9ICdXaXNlbmV0UGxheWVyJwppbmNsdWRlICc6YXBwJwppbmNsdWRlQnVpbGQoJy4uL25vZGVfbW9kdWxlcy9AcmVhY3QtbmF0aXZlL2dyYWRsZS1wbHVnaW4nKQo=" \
+          echo "cGx1Z2luTWFuYWdlbWVudCB7CiAgICByZXBvc2l0b3JpZXMgewogICAgICAgIG1hdmVuTG9jYWwoKQogICAgICAgIGdvb2dsZSgpCiAgICAgICAgbWF2ZW5DZW50cmFsKCkKICAgICAgICBncmFkbGVQbHVnaW5Qb3J0YWwoKQogICAgfQp9CgpwbHVnaW5zIHsKICAgIGlkKCJjb20uZmFjZWJvb2sucmVhY3Quc2V0dGluZ3MiKSB2ZXJzaW9uICIwLjczLjAiCn0KCmV4dGVuc2lvbnMuY29uZmlndXJlKGNvbS5mYWNlYm9vay5yZWFjdC5SZWFjdFNldHRpbmdzRXh0ZW5zaW9uKSB7IGV4IC0+CiAgICBleC5hdXRvbGlua0xpYnJhcmllc0Zyb21Db21tYW5kKCkKfQpyb290UHJvamVjdC5uYW1lID0gJ1dpc2VuZXRQbGF5ZXInCmluY2x1ZGUgJzphcHAnCmluY2x1ZGVCdWlsZCgnLi4vbm9kZV9tb2R1bGVzL0ByZWFjdC1uYXRpdmUvZ3JhZGxlLXBsdWdpbicpCg==" \
             | base64 --decode > react-native-app/android/settings.gradle
-          sed -i "s|JAR_DIR_PLACEHOLDER|${JAR_DIR}|g" react-native-app/android/settings.gradle
           echo "=== Patched settings.gradle ==="
           cat react-native-app/android/settings.gradle
 
