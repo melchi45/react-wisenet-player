@@ -1,18 +1,30 @@
-buildscript {
+pluginManagement {
+    def rnPlugin = [
+        file("../node_modules/@react-native/gradle-plugin"),
+        file("../node_modules/react-native/node_modules/@react-native/gradle-plugin")
+    ].find { it.exists() && new File(it, 'build.gradle.kts').exists() }
+    if (rnPlugin) {
+        includeBuild(rnPlugin)
+    }
     repositories {
         google()
         mavenCentral()
-    }
-    dependencies {
-        classpath("com.facebook.react:react-native-gradle-plugin:0.73.0")
+        gradlePluginPortal()
     }
 }
-
-apply plugin: "com.facebook.react.settings"
-
+plugins {
+    id("com.facebook.react.settings")
+}
 extensions.configure(com.facebook.react.ReactSettingsExtension) { ex ->
     ex.autolinkLibrariesFromCommand()
 }
-
 rootProject.name = 'WisenetPlayer'
 include ':app'
+
+def rnPluginForBuild = [
+    file("../node_modules/@react-native/gradle-plugin"),
+    file("../node_modules/react-native/node_modules/@react-native/gradle-plugin")
+].find { it.exists() }
+if (rnPluginForBuild) {
+    includeBuild(rnPluginForBuild)
+}

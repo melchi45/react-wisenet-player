@@ -90,9 +90,21 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
 
-      - name: Verify react-native CLI
+      - name: Diagnose gradle-plugin npm package
+        working-directory: react-native-app
         run: |
-          react-native --version 2>/dev/null || echo "react-native CLI: NOT FOUND"
+          echo "=== Top-level gradle-plugin ==="
+          ls node_modules/@react-native/gradle-plugin/ 2>/dev/null || echo "NOT FOUND"
+          echo "=== Nested gradle-plugin ==="
+          ls "node_modules/react-native/node_modules/@react-native/gradle-plugin/" 2>/dev/null || echo "NOT FOUND"
+          echo "=== build.gradle.kts exists? ==="
+          [ -f node_modules/@react-native/gradle-plugin/build.gradle.kts ] && echo "YES (top-level)" || true
+          [ -f "node_modules/react-native/node_modules/@react-native/gradle-plugin/build.gradle.kts" ] && echo "YES (nested)" || true
+          echo "=== src/ exists? ==="
+          ls node_modules/@react-native/gradle-plugin/src/ 2>/dev/null || echo "NO src/ at top-level"
+          ls "node_modules/react-native/node_modules/@react-native/gradle-plugin/src/" 2>/dev/null || echo "NO src/ nested"
+          echo "=== react-native CLI ==="
+          react-native --version 2>/dev/null || echo "NOT FOUND"
 
       - name: Build Debug APK
         if: steps.build_type.outputs.type == 'debug'
