@@ -1,11 +1,5 @@
 pluginManagement {
-    def rnPlugin = [
-        file("../node_modules/@react-native/gradle-plugin"),
-        file("../node_modules/react-native/node_modules/@react-native/gradle-plugin")
-    ].find { it.exists() && new File(it, 'build.gradle.kts').exists() }
-    if (rnPlugin) {
-        includeBuild(rnPlugin)
-    }
+    includeBuild('../node_modules/@react-native/gradle-plugin')
     repositories {
         google()
         mavenCentral()
@@ -20,11 +14,4 @@ extensions.configure(com.facebook.react.ReactSettingsExtension) { ex ->
 }
 rootProject.name = 'WisenetPlayer'
 include ':app'
-
-def rnPluginForBuild = [
-    file("../node_modules/@react-native/gradle-plugin"),
-    file("../node_modules/react-native/node_modules/@react-native/gradle-plugin")
-].find { it.exists() }
-if (rnPluginForBuild) {
-    includeBuild(rnPluginForBuild)
-}
+includeBuild('../node_modules/@react-native/gradle-plugin')
