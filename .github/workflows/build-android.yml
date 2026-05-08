@@ -87,9 +87,6 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x react-native-app/android/gradlew
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
-
       - name: Diagnose gradle-plugin npm package
         working-directory: react-native-app
         run: |
@@ -136,7 +133,7 @@ jobs:
         if: steps.build_type.outputs.type == 'debug'
         working-directory: react-native-app/android
         run: |
-          ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee /tmp/gradle-build.log
+          ./gradlew assembleDebug --no-daemon --info --stacktrace 2>&1 | tee /tmp/gradle-build.log
           exit ${PIPESTATUS[0]}
 
       - name: Build Release APK
@@ -149,6 +146,8 @@ jobs:
       - name: Print build error summary
         if: failure()
         run: |
+          echo "========== includeBuild / plugin resolution =========="
+          grep -iE "includeBuild|react-native-gradle|Included build|Plugin.*react|Composite" /tmp/gradle-build.log 2>/dev/null | head -30 || echo "(no matches)"
           echo "========== GRADLE ERROR LINES =========="
           grep -E "FAILURE|> Could not|Exception|error:" /tmp/gradle-build.log 2>/dev/null | tail -40 || echo "(no log)"
           echo "========== LAST 80 LINES ==============="
