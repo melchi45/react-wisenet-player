@@ -90,6 +90,8 @@ jobs:
       - name: Build Debug APK
         if: steps.build_type.outputs.type == 'debug'
         working-directory: react-native-app/android
+        env:
+          PATH: ${{ github.workspace }}/react-native-app/node_modules/.bin:${{ env.PATH }}
         run: |
           ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee /tmp/gradle-build.log
           exit ${PIPESTATUS[0]}
@@ -97,6 +99,8 @@ jobs:
       - name: Build Release APK
         if: steps.build_type.outputs.type == 'release'
         working-directory: react-native-app/android
+        env:
+          PATH: ${{ github.workspace }}/react-native-app/node_modules/.bin:${{ env.PATH }}
         run: |
           ./gradlew assembleRelease --no-daemon --stacktrace 2>&1 | tee /tmp/gradle-build.log
           exit ${PIPESTATUS[0]}
