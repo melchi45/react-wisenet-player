@@ -91,7 +91,8 @@ jobs:
         uses: gradle/actions/setup-gradle@v3
 
       - name: Verify react-native CLI
-        run: react-native --version 2>/dev/null || echo "react-native CLI: NOT FOUND"
+        run: |
+          react-native --version 2>/dev/null || echo "react-native CLI: NOT FOUND"
 
       - name: Build Debug APK
         if: steps.build_type.outputs.type == 'debug'
