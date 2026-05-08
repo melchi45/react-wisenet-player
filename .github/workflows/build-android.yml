@@ -129,6 +129,14 @@ jobs:
           echo "=== src/ directory ==="
           ls "$PLUGIN_DIR/src/main/kotlin/com/facebook/react/" 2>/dev/null || echo "No src/"
 
+      - name: Pre-build @react-native/gradle-plugin JAR
+        working-directory: react-native-app/node_modules/@react-native/gradle-plugin
+        run: |
+          chmod +x gradlew
+          ./gradlew jar --no-daemon --stacktrace 2>&1 | tail -30
+          echo "=== Built JARs ==="
+          ls -la build/libs/ || echo "No build/libs/ found"
+
       - name: Build Debug APK
         if: steps.build_type.outputs.type == 'debug'
         working-directory: react-native-app/android
