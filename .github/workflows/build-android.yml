@@ -137,6 +137,42 @@ jobs:
           echo "=== Built JARs ==="
           ls -la build/libs/ || echo "No build/libs/ found"
 
+      - name: Patch settings.gradle to bypass includeBuild plugin resolution
+        run: |
+          JAR_DIR="${GITHUB_WORKSPACE}/react-native-app/node_modules/@react-native/gradle-plugin/build/libs"
+          echo "=== JARs available: ==="
+          ls -la "${JAR_DIR}" || echo "WARNING: JAR dir not found"
+          cat > react-native-app/android/settings.gradle <<SETTINGS_EOF
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath fileTree(dir: '${JAR_DIR}', include: ['*.jar'])
+    }
+}
+
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+apply plugin: com.facebook.react.ReactSettingsPlugin
+
+extensions.configure(com.facebook.react.ReactSettingsExtension) { ex ->
+    ex.autolinkLibrariesFromCommand()
+}
+rootProject.name = 'WisenetPlayer'
+include ':app'
+includeBuild('../node_modules/@react-native/gradle-plugin')
+SETTINGS_EOF
+          echo "=== Patched settings.gradle ==="
+          cat react-native-app/android/settings.gradle
+
       - name: Build Debug APK
         if: steps.build_type.outputs.type == 'debug'
         working-directory: react-native-app/android
