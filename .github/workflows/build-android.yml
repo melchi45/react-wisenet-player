@@ -68,18 +68,16 @@ jobs:
             echo "No release keystore found in secrets — signing with debug keystore."
           fi
 
-      - name: Grant execute permission for gradlew
-        working-directory: react-native-app/android
-        run: chmod +x gradlew
-
-      - name: Cache Gradle packages
-        uses: actions/cache@v4
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
         with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: gradle-${{ hashFiles('react-native-app/android/**/*.gradle*', 'react-native-app/android/gradle/wrapper/gradle-wrapper.properties') }}
-          restore-keys: gradle-
+          gradle-version: '8.3'
+
+      - name: Generate Gradle Wrapper
+        working-directory: react-native-app/android
+        run: |
+          gradle wrapper --gradle-version 8.3 --distribution-type all
+          chmod +x gradlew
 
       - name: Build Debug APK
         if: steps.build_type.outputs.type == 'debug'
