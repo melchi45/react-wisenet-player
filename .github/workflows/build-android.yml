@@ -90,6 +90,15 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
 
+      - name: Verify node_modules
+        run: |
+          echo "--- @react-native/gradle-plugin ---"
+          ls react-native-app/node_modules/@react-native/gradle-plugin 2>/dev/null || \
+            ls react-native-app/node_modules/react-native/node_modules/@react-native/gradle-plugin 2>/dev/null || \
+            echo "NOT FOUND in either location"
+          echo "--- react-native CLI ---"
+          react-native --version 2>/dev/null || echo "react-native CLI: NOT FOUND"
+
       - name: Build Debug APK
         if: steps.build_type.outputs.type == 'debug'
         working-directory: react-native-app/android
@@ -107,19 +116,10 @@ jobs:
       - name: Print build error summary
         if: failure()
         run: |
-          echo "## Build Failed" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          grep -E "FAILURE|> Could not|Exception|error:" /tmp/gradle-build.log 2>/dev/null | tail -40 >> $GITHUB_STEP_SUMMARY || true
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          echo "### Last 80 lines" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          tail -80 /tmp/gradle-build.log 2>/dev/null >> $GITHUB_STEP_SUMMARY || echo "No log file found" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          echo ""
-          echo "=========================================="
-          echo "FULL ERROR SUMMARY (also in step summary):"
-          echo "=========================================="
-          cat $GITHUB_STEP_SUMMARY || true
+          echo "========== GRADLE ERROR LINES =========="
+          grep -E "FAILURE|> Could not|Exception|error:" /tmp/gradle-build.log 2>/dev/null | tail -40 || echo "(no log)"
+          echo "========== LAST 80 LINES ==============="
+          tail -80 /tmp/gradle-build.log 2>/dev/null || echo "(no log file)"
 
       - name: Upload build log on failure
         if: failure()
