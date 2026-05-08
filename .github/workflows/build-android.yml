@@ -90,33 +90,8 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
 
-      - name: Verify node_modules
-        run: |
-          echo "--- @react-native/gradle-plugin ---"
-          ls react-native-app/node_modules/@react-native/gradle-plugin 2>/dev/null || \
-            ls react-native-app/node_modules/react-native/node_modules/@react-native/gradle-plugin 2>/dev/null || \
-            echo "NOT FOUND in either location"
-          echo "--- react-native CLI ---"
-          react-native --version 2>/dev/null || echo "react-native CLI: NOT FOUND"
-
-      - name: Ensure @react-native/gradle-plugin at top-level
-        working-directory: react-native-app
-        run: |
-          PLUGIN_DIR="node_modules/@react-native/gradle-plugin"
-          if [ ! -d "$PLUGIN_DIR" ]; then
-            NESTED=$(find node_modules -name "gradle-plugin" -path "*/@react-native/gradle-plugin" 2>/dev/null | head -1)
-            if [ -n "$NESTED" ]; then
-              mkdir -p "node_modules/@react-native"
-              cp -r "$NESTED" "$PLUGIN_DIR"
-              echo "Copied gradle-plugin from: $NESTED"
-            else
-              echo "ERROR: @react-native/gradle-plugin not found anywhere!"
-              find node_modules -name "gradle-plugin" 2>/dev/null | head -20
-              exit 1
-            fi
-          else
-            echo "Plugin already at top-level: $PLUGIN_DIR"
-          fi
+      - name: Verify react-native CLI
+        run: react-native --version 2>/dev/null || echo "react-native CLI: NOT FOUND"
 
       - name: Build Debug APK
         if: steps.build_type.outputs.type == 'debug'

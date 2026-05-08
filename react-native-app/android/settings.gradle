@@ -1,17 +1,18 @@
-pluginManagement {
-    includeBuild('../node_modules/@react-native/gradle-plugin')
+buildscript {
     repositories {
         google()
         mavenCentral()
-        gradlePluginPortal()
+    }
+    dependencies {
+        classpath("com.facebook.react:react-native-gradle-plugin:0.73.0")
     }
 }
-plugins {
-    id("com.facebook.react.settings")
-}
+
+apply plugin: "com.facebook.react.settings"
+
 extensions.configure(com.facebook.react.ReactSettingsExtension) { ex ->
     ex.autolinkLibrariesFromCommand()
 }
+
 rootProject.name = 'WisenetPlayer'
 include ':app'
-includeBuild('../node_modules/@react-native/gradle-plugin')
