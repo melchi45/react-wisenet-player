@@ -37,81 +37,106 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install Node dependencies
-        working-directory: react-native-app
-        run: npm install
-
       - name: Determine build type
         id: build_type
         run: |
           if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
             echo "type=release" >> $GITHUB_OUTPUT
-            echo "Building RELEASE APK for tag ${{ github.ref_name }}"
           elif [[ "${{ github.event.inputs.build_type }}" == "release" ]]; then
             echo "type=release" >> $GITHUB_OUTPUT
           else
             echo "type=debug" >> $GITHUB_OUTPUT
           fi
 
-      - name: Set up release keystore
-        if: steps.build_type.outputs.type == 'release'
-        working-directory: react-native-app/android/app
+      - name: Initialize React Native project
         run: |
-          if [ -n "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
-            echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > release.keystore
-            echo "WISENET_UPLOAD_STORE_FILE=release.keystore" >> ../gradle.properties
-            echo "WISENET_UPLOAD_STORE_PASSWORD=${{ secrets.ANDROID_KEY_STORE_PASSWORD }}" >> ../gradle.properties
-            echo "WISENET_UPLOAD_KEY_ALIAS=${{ secrets.ANDROID_KEY_ALIAS }}" >> ../gradle.properties
-            echo "WISENET_UPLOAD_KEY_PASSWORD=${{ secrets.ANDROID_KEY_PASSWORD }}" >> ../gradle.properties
-            echo "Using release keystore from secrets."
-          else
-            echo "No release keystore found in secrets — signing with debug keystore."
-          fi
+          npx react-native@0.73.0 init WisenetPlayer \
+            --template react-native-template-typescript \
+            --skip-install \
+            --directory /tmp/rn-build
+          echo "React Native project initialized"
+
+      - name: Copy custom source files
+        run: |
+          # Replace generated src with our source
+          rm -rf /tmp/rn-build/src
+          cp -r react-native-app/src /tmp/rn-build/
+          cp react-native-app/App.tsx /tmp/rn-build/App.tsx
+          cp react-native-app/index.js /tmp/rn-build/index.js
+
+      - name: Merge dependencies into package.json
+        run: |
+          python3 - <<'EOF'
+          import json
+
+          with open('react-native-app/package.json') as f:
+              our = json.load(f)
+          with open('/tmp/rn-build/package.json') as f:
+              base = json.load(f)
+
+          # Merge our runtime dependencies into the base project
+          base['dependencies'].update(our['dependencies'])
+
+          with open('/tmp/rn-build/package.json', 'w') as f:
+              json.dump(base, f, indent=2)
+
+          print("Merged dependencies:")
+          for k in our['dependencies']:
+              print(f"  {k}: {our['dependencies'][k]}")
+          EOF
+
+      - name: Install Node dependencies
+        working-directory: /tmp/rn-build
+        run: npm install
 
       - name: Set up Android SDK components
         run: |
-          echo "ANDROID_HOME=$ANDROID_HOME"
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager \
             "platform-tools" \
             "build-tools;34.0.0" \
             "platforms;android-34" \
-            "ndk;26.1.10909125" 2>&1 | tail -5
+            "ndk;26.1.10909125" 2>&1 | tail -3
 
       - name: Create local.properties
-        working-directory: react-native-app/android
-        run: echo "sdk.dir=$ANDROID_HOME" > local.properties
+        run: echo "sdk.dir=$ANDROID_HOME" > /tmp/rn-build/android/local.properties
 
-      - name: Grant execute permission for gradlew
-        run: chmod +x react-native-app/android/gradlew
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
+      - name: Set up release keystore
+        if: steps.build_type.outputs.type == 'release'
+        run: |
+          if [ -n "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
+            echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > /tmp/rn-build/android/app/release.keystore
+            cat >> /tmp/rn-build/android/gradle.properties <<'PROPS'
+          WISENET_UPLOAD_STORE_FILE=release.keystore
+          WISENET_UPLOAD_STORE_PASSWORD=${{ secrets.ANDROID_KEY_STORE_PASSWORD }}
+          WISENET_UPLOAD_KEY_ALIAS=${{ secrets.ANDROID_KEY_ALIAS }}
+          WISENET_UPLOAD_KEY_PASSWORD=${{ secrets.ANDROID_KEY_PASSWORD }}
+          PROPS
+            echo "Using release keystore from secrets."
+          else
+            echo "No release keystore in secrets — using debug keystore."
+          fi
 
       - name: Build Debug APK
         if: steps.build_type.outputs.type == 'debug'
-        working-directory: react-native-app/android
-        env:
-          ANDROID_HOME: ${{ env.ANDROID_HOME }}
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
+        working-directory: /tmp/rn-build/android
+        run: ./gradlew assembleDebug --no-daemon
 
       - name: Build Release APK
         if: steps.build_type.outputs.type == 'release'
-        working-directory: react-native-app/android
-        env:
-          ANDROID_HOME: ${{ env.ANDROID_HOME }}
-        run: ./gradlew assembleRelease --no-daemon --stacktrace
+        working-directory: /tmp/rn-build/android
+        run: ./gradlew assembleRelease --no-daemon
 
-      - name: Rename APK
-        id: rename_apk
+      - name: Collect APK
+        id: collect_apk
         run: |
           if [[ "${{ steps.build_type.outputs.type }}" == "release" ]]; then
-            SRC="react-native-app/android/app/build/outputs/apk/release/app-release.apk"
+            SRC="/tmp/rn-build/android/app/build/outputs/apk/release/app-release.apk"
             TAG="${{ github.ref_name }}"
-            DEST="wisenet-player-${TAG:-release}.apk"
+            DEST="$GITHUB_WORKSPACE/wisenet-player-${TAG:-release}.apk"
           else
-            SRC="react-native-app/android/app/build/outputs/apk/debug/app-debug.apk"
+            SRC="/tmp/rn-build/android/app/build/outputs/apk/debug/app-debug.apk"
             SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-            DEST="wisenet-player-debug-${SHA}.apk"
+            DEST="$GITHUB_WORKSPACE/wisenet-player-debug-${SHA}.apk"
           fi
           cp "$SRC" "$DEST"
           echo "apk_path=$DEST" >> $GITHUB_OUTPUT
@@ -120,8 +145,8 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.rename_apk.outputs.apk_name }}
-          path: ${{ steps.rename_apk.outputs.apk_path }}
+          name: ${{ steps.collect_apk.outputs.apk_name }}
+          path: ${{ steps.collect_apk.outputs.apk_path }}
           retention-days: 30
 
       - name: Create GitHub Release
@@ -143,7 +168,7 @@ jobs:
 
             ### 변경사항
             ${{ github.event.head_commit.message }}
-          files: ${{ steps.rename_apk.outputs.apk_path }}
+          files: ${{ steps.collect_apk.outputs.apk_path }}
           draft: false
           prerelease: false
         env:
