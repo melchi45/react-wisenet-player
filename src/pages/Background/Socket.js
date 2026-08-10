@@ -6,7 +6,8 @@ export const Socket = function () {};
 // constructor
 // The ID of the extension we want to talk to.
 // var extensionId = "loliolhohbdkfmiieliikgpdmohhfnhm";
-Socket.extensionId = 'knldjmfmopnpolahpmmgbagdohdnhkik';
+Socket.extensionId = 'aleblbammdopgjlaainhggebjfgfkpdf';
+// Socket.extensionId = 'knldjmfmopnpolahpmmgbagdohdnhkik';
 Socket.extensionId2 = 'cgjnljkgkhlalpippgcamfefhfbkbnid';
 Socket.extensionId3 = 'kffkaaidbnfhedampdhagmioedmfjdop';
 Socket.listeningSocketId = null;

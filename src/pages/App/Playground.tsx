@@ -25,7 +25,8 @@ import {
   ResetClientProps,
   deviceTypeOptions,
   deviceChannelOptions,
-  IInitializedData
+  IInitializedData,
+  IAttributesData,
 } from '../../components/ump-player/Constant/Constant';
 
 import Box from '@mui/material/Box';
@@ -342,6 +343,11 @@ export const Playground: React.FC = () => {
               // columnDef[0].editable = true;
               // columnDef[0].type = 'singleSelect';
               // handleUpdateDevice(response, 1);
+
+              // sunapimanager.getAttributes().then((attributes: IAttributesData) => {
+              //   console.log(attributes);
+              // });
+
               resolve(device);
             }
           })
@@ -388,6 +394,10 @@ export const Playground: React.FC = () => {
     if (value == null) return false;
     if (value == undefined) return false;
     if (!value.trim()) return false;
+    if (value === "") return false;
+    if (value === defaultUsername || value === defaultPassword) return true;
+
+    return true;
   }
 
   const asyncMain = async (device: ISearchDevice): Promise<ISearchDevice> => {

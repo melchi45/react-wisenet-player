@@ -99,8 +99,19 @@ var apps = {
   },
 };
 
-chrome.app.runtime.onLaunched.addListener(apps.onLaunched());
-chrome.app.runtime.onRestarted.addListener(apps.onRestarted());
+// chrome.app.* is the Chrome Apps platform-app API; it does not exist in a
+// Manifest V3 extension service worker. Guarded so the crash it used to
+// cause here doesn't prevent the onMessageExternal listener below (which
+// receives discovery results) from ever being registered.
+if (chrome.app && chrome.app.runtime) {
+  chrome.app.runtime.onLaunched.addListener(apps.onLaunched());
+  chrome.app.runtime.onRestarted.addListener(apps.onRestarted());
+}
+
+// ID of the WiseNetChromeIPInstaller extension, which performs UDP
+// discovery (via its own native messaging host) and forwards each
+// discovered device to this extension.
+var WISENET_IP_INSTALLER_ID = 'ihcdpceodailngfjicepeliafblopphg';
 
 chrome.runtime.onMessageExternal.addListener(function (
   message,
@@ -112,6 +123,19 @@ chrome.runtime.onMessageExternal.addListener(function (
   console.log('*************');
   if (sender.id === Socket.extensionId && message.discovery) {
     Socket.cleanup_create();
+    return;
+  }
+
+  if (sender.id === WISENET_IP_INSTALLER_ID && message.chMac) {
+    // A discovered device, forwarded from WiseNetChromeIPInstaller's
+    // scripts/socket.js. Keep the latest result per MAC address.
+    chrome.storage.local.get({ discoveredDevices: [] }, function (data) {
+      var devices = data.discoveredDevices.filter(function (d) {
+        return d.chMac !== message.chMac;
+      });
+      devices.push(message);
+      chrome.storage.local.set({ discoveredDevices: devices });
+    });
   }
 });
 

@@ -349,7 +349,44 @@ export const SunapiManager = function () {
     dettach: function () {
       this._sunapiClient = null;
     },
-    getAttributes: function () {
+    getAttributes: async () => {
+      const promises = [];
+      var sunapiURI = '/stw-cgi/' + cgi.ATTRIBUTES + '/attributes';
+
+      try {
+        return get(sunapiURI, {})
+          .then((response) => {
+              if (typeof response === 'string') {
+                response = JSON.parse(response);
+              }
+              if (response.data !== undefined) {
+                response = response.data;
+              }
+              resolve({
+                name: 'attributes',
+                data: response,
+              });            
+          })
+          .catch((error) => {
+            log.error(error);
+            throw new SunapiException({
+              errorCode: fromHex('0x0702'),
+              place: 'sunapiManager.js:getAttributes',
+              uri: sunapiURI,
+              status: error.Code,
+              message: HTTP_STATUS_CODES[error.Code],
+            });
+          });
+        } catch (error) {
+          throw new UmpException({
+            uri: sunapiURI,
+            errorCode: fromHex('0x0700'),
+            place: 'sunapiManager.js:getAttributes',
+            message: error.message,
+          });
+        }
+    },
+    getAttributes2: function () {
       return new Promise(function (resolve, reject) {
         var sunapiURI = '/stw-cgi/' + cgi.ATTRIBUTES + '/attributes';
         try {
